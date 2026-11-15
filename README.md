@@ -1,66 +1,109 @@
 # social-media-video-claude
 
-Tools that turn research into short vertical videos: a data pipeline, text-to-speech
-voiceovers, animated PowerPoint charts, and editable CapCut drafts timed to the
-voiceover, with logos, on-screen text, end cards and an ffmpeg preview renderer.
+[![CI](https://github.com/raj-vora/social-media-video-claude/actions/workflows/ci.yml/badge.svg)](https://github.com/raj-vora/social-media-video-claude/actions/workflows/ci.yml)
 
-This repository holds the tooling only. The scripts, footage, data tables and rendered
-videos for each series are not included; bring your own content. The tools are for
-education. Nothing here is investment advice.
+A toolchain that turns structured research into short vertical videos. It takes numbers
+from market data, writes them into a timed script, narrates the script with neural TTS,
+draws animated charts, and assembles editable CapCut projects timed to the voiceover,
+with logos, on-screen text, and end cards. An ffmpeg renderer previews each project
+without CapCut.
 
-## Projects
+The repository contains the tooling only. The scripts, footage, data tables, and renders
+for each series are not included, so the pipeline needs your own content (see
+[Running it](#running-it)). The tools are for education. Nothing here is investment advice.
 
-| Folder | What it builds |
+## Pipeline
+
+```mermaid
+flowchart LR
+    D[Market data<br/>Yahoo Finance] --> R[Return maths<br/>yearly_returns.py]
+    S[Reel script<br/>### timed sections] --> P[script_format.py<br/>parser]
+    P --> V[Voiceover<br/>Indic Parler-TTS]
+    R --> C[PowerPoint charts<br/>VBA over COM]
+    V --> T[Timing and cues<br/>mention_times.py]
+    T --> B[CapCut draft builder<br/>build_draft.js]
+    C --> B
+    B --> E[Logos and end cards<br/>add_logos.js]
+    E --> F[Preview render<br/>render_preview.py / ffmpeg]
+    E --> U[Publishing<br/>Instagram and YouTube]
+```
+
+## Engineering notes
+
+- **Pure logic is separated from side effects.** The script parser
+  (`invit-analysis-2026/voiceover/script_format.py`) has no TTS dependency, so it is
+  tested on its own and reused by the timing and voiceover tools. The return maths
+  (`invit-analysis-2026/data/yearly_returns.py`) takes parsed API payloads, so it is tested
+  without network access.
+- **Expensive work is cached and crash-safe.** Each synthesised sentence is cached under a
+  hash of its text and delivery style, so a crash or a restart loses only the sentence in progress. Changing
+  the playback tempo re-runs offline, from cache.
+- **Output that a human edits is protected.** The draft builders back up a project before
+  rewriting it, keep CapCut's draft IDs stable, and skip projects that were edited by hand
+  unless forced.
+- **Platform identifiers are not stored.** The draft builder generates its device
+  fingerprint per machine instead of writing one into the repository.
+- **Configuration comes from the environment.** No paths are hard-coded; see the table below.
+- **Secrets stay out of the repository.** Credentials are read from a git-ignored
+  `.secrets/` folder at run time.
+
+## Repository layout
+
+| Path | Contents |
 |---|---|
-| `invit-analysis-2026/` | Vertical explainers on InvITs: returns data, charts, voiceovers, CapCut drafts, and the publishing helpers for Instagram and YouTube |
-| `dividend-income-2026/` | Short and long-form videos on dividend stocks: data scripts, footage fetching, overlays, thumbnails |
+| `invit-analysis-2026/` | Explainers on InvITs: return data, charts, voiceover, CapCut drafts, publishing helpers |
+| `dividend-income-2026/` | Short and long-form dividend-stock videos: data scripts, footage fetching, overlays, thumbnails |
 | `exdiv-nov-2026/` | Ex-dividend shorts and a long-form video: ex-date data, ASR check, thumbnails |
 | `gold-2026/` | Gold and Sovereign Gold Bond price analysis and fetching |
+| `tests/` | Unit tests for the parser and the return maths |
+| `.github/workflows/ci.yml` | CI: unit tests, byte-compile, JavaScript syntax check |
+| `examples/sample_script.md` | One placeholder section showing the script format |
 
-## How the pipeline fits together
+## Quick start
 
-1. **Data.** Fetch prices and dividend events (Yahoo Finance) and compute returns. The
-   methodology for each series is in its `data/README_methodology.md`.
-2. **Scripts.** Each reel is a list of timed sections in the format shown in
-   [`examples/sample_script.md`](examples/sample_script.md). The voiceover parser reads
-   that format.
-3. **Charts.** PowerPoint charts are generated with VBA through COM (Windows). Their
-   videos are exported with PowerPoint's own exporter.
-4. **Voiceover.** Indic Parler-TTS renders each sentence. Sections are concatenated,
-   trimmed and tempo-adjusted.
-5. **Drafts.** The CapCut builders write draft projects straight into CapCut's data
-   folder, retimed to the voiceover, with overlays and end cards.
-6. **Preview.** `render_preview.py` renders a draft to MP4 with ffmpeg, so a reel can be
-   reviewed without opening CapCut.
+No dependencies are needed to run the tests:
 
-## Setup
+```bash
+python -m unittest discover -s tests -v
+```
 
-- **Windows** for the CapCut, PowerPoint and VBA steps. The voiceover and preview steps
-  also run on Linux, but the default paths are Windows-only.
-- **Python 3.12** for `voiceover/` and the image and preview scripts. `requirements.txt`
-  lists the packages.
-- **Node.js.** The generator scripts use only the standard library; there is no
-  `package.json`.
+The CI workflow runs the same tests on Python 3.12, byte-compiles every Python file, and
+runs `node --check` on every JavaScript file.
+
+## Running it
+
+The full pipeline runs on Windows, because it drives CapCut and PowerPoint.
+
+- **Python 3.12** for the voiceover and image tools. `requirements.txt` lists the packages.
+- **Node.js** for the draft builders. They use only the standard library.
 - **ffmpeg and ffprobe** on `PATH`.
-- **Environment variables** (set them in your shell or system settings; Node does not read `.env`):
+- **Environment variables.** Set these in your shell or system settings; Node does not read `.env`.
 
   | Variable | Used by | Example |
   |---|---|---|
-  | `CAPCUT_DRAFTS_DIR` | CapCut builders, `render_preview.py` | `%LOCALAPPDATA%\CapCut\User Data\Projects\com.lveditor.draft` |
+  | `CAPCUT_DRAFTS_DIR` | draft builders, `render_preview.py` | `%LOCALAPPDATA%\CapCut\User Data\Projects\com.lveditor.draft` |
   | `CAPCUT_FONT` | `render_preview.py` | path to CapCut's `en.ttf` |
   | `FFPROBE` | probe scripts (optional) | path to `ffprobe` if it is not on `PATH` |
+  | `CAPCUT_DEVICE_ID`, `CAPCUT_DISK_ID`, `CAPCUT_MAC_ID` | draft builder (optional) | fixed values for reproducible drafts |
   | `PIXABAY_API_KEY` | `fetch_footage.py` (optional) | your Pixabay key |
   | `VIDS_BASE_URL` | `publish/host_video.py` (optional) | HTTPS base of your own video host |
 
-- **Credentials** for publishing (Meta and YouTube OAuth) go in a `.secrets/` folder that
-  is git-ignored. `publish/post_reel.py` describes the files it reads.
+- **Publishing credentials** (Meta and YouTube OAuth) go in a git-ignored `.secrets/`
+  folder. `publish/post_reel.py` describes the files it reads.
 
-## Placeholder example
+The reel-definition file and per-series script modules hold each series' content. They
+are not included, so the builders will not run out of the box. Write your own, following
+[`examples/sample_script.md`](examples/sample_script.md), to use the pipeline.
 
-[`examples/sample_script.md`](examples/sample_script.md) shows one section in the format
-the voiceover parser expects. The builders also read a reel-definition file
-(`reels.js`) and per-series script modules. Those hold the content of each series, so
-they are not included. Write your own to use the pipeline.
+## Status and limitations
+
+- The Python parser and return maths are unit-tested. The JavaScript draft builders are
+  checked for syntax only, because they write into CapCut's project format and need a
+  real CapCut install to verify.
+- The CapCut project format is undocumented. The builders were reverse-engineered from
+  projects saved by CapCut 9.x, and they may break after an upgrade.
+- The voiceover and chart steps depend on local hardware and software (a GPU is optional,
+  PowerPoint is required for charts).
 
 ## License
 
