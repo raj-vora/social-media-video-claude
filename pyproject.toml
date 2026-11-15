@@ -1,0 +1,16 @@
+# Tool configuration only. The repository is a set of scripts, not an installable package,
+# so there is no [project] table and nothing is published to PyPI.
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+# E9: syntax errors. F: pyflakes (unused imports, undefined names, placeholder-less f-strings).
+select = ["E9", "F"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+# Typed modules only. The scripts are not annotated yet and are left out on purpose.
+files = ["invit-analysis-2026/voiceover/script_format.py", "tests"]

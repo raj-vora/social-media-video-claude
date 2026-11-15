@@ -12,7 +12,6 @@ data/invits_2026_returns.csv. Text is Latin only, with "Rs", like every overlay.
 Usage: .venv-tts/Scripts/python invit-analysis-2026/assets/capcut/generator/make_longform_graphics.py [name-substring ...]
 """
 
-import math
 import subprocess
 import sys
 from pathlib import Path

@@ -19,7 +19,7 @@ import soundfile as sf
 sys.path.insert(0, str(Path(__file__).parent))
 import build_short as B  # noqa: E402
 from short_scripts import CTA, SCRIPTS  # noqa: E402
-from timing import RATE, build_text, sentences_of  # noqa: E402
+from timing import build_text, sentences_of  # noqa: E402
 from generate_voiceovers import DEFAULT_VOICES, VOICES  # noqa: E402
 
 END_SENTENCE = "ये इन्वेस्टमेंट एडवाइस नहीं है।"
