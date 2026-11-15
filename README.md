@@ -55,8 +55,9 @@ flowchart LR
 | `dividend-income-2026/` | Short and long-form dividend-stock videos: data scripts, footage fetching, overlays, thumbnails |
 | `exdiv-nov-2026/` | Ex-dividend shorts and a long-form video: ex-date data, ASR check, thumbnails |
 | `gold-2026/` | Gold and Sovereign Gold Bond price analysis and fetching |
-| `tests/` | Unit tests for the parser and the return maths |
-| `.github/workflows/ci.yml` | CI: unit tests, byte-compile, JavaScript syntax check |
+| `tests/` | Unit tests: the script parser and return maths (Python), the CapCut timing and overlay helpers (`tests/js`, Node) |
+| `pyproject.toml` | `ruff` and `mypy` configuration |
+| `.github/workflows/ci.yml` | CI: lint, type check, both test suites, syntax checks |
 | `examples/sample_script.md` | One placeholder section showing the script format |
 
 ## Quick start
@@ -65,10 +66,12 @@ No dependencies are needed to run the tests:
 
 ```bash
 python -m unittest discover -s tests -v
+node --test tests/js/draft_model.test.js
 ```
 
-The CI workflow runs the same tests on Python 3.12, byte-compiles every Python file, and
-runs `node --check` on every JavaScript file.
+The CI workflow runs the lint and type checks (`ruff` and `mypy`, configured in
+`pyproject.toml`), the Python tests on Python 3.12, the JavaScript tests with `node:test`,
+and a syntax check of every Python and JavaScript file.
 
 ## Running it
 
@@ -97,9 +100,10 @@ are not included, so the builders will not run out of the box. Write your own, f
 
 ## Status and limitations
 
-- The Python parser and return maths are unit-tested. The JavaScript draft builders are
-  checked for syntax only, because they write into CapCut's project format and need a
-  real CapCut install to verify.
+- The Python parser and return maths are unit-tested. The pure CapCut helpers (timing,
+  segments, text overlays) are unit-tested with `node:test`. The file-writing draft
+  builder is checked for syntax only, because it writes into CapCut's project format and
+  needs a real CapCut install to verify.
 - The CapCut project format is undocumented. The builders were reverse-engineered from
   projects saved by CapCut 9.x, and they may break after an upgrade.
 - The voiceover and chart steps depend on local hardware and software (a GPU is optional,
