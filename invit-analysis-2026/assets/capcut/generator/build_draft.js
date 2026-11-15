@@ -1,11 +1,16 @@
-// Builds a CapCut draft project (draft_content.json + draft_meta_info.json) on disk,
-// referencing real assets from invit-analysis-2026/assets/, matched to the timing in
-// /storyboards/visual_storyboard.md. Does NOT touch CapCut's root_meta_info.json
-// registry - that's a separate, explicit step (register_project.js) since it's a
-// shared file CapCut itself owns and reads at startup.
+// Builds CapCut draft projects (draft_content.json + draft_meta_info.json) on disk from
+// the media under invit-analysis-2026/assets/ and the beat lists in reels.js.
+//
+// The pure parts - timing, segments and text overlays - are in draft_model.js, which has
+// unit tests (tests/js). This file adds what touches the disk and the environment: the
+// probe data, the text styles, CapCut's folder layout and the file writers.
+//
+// It does NOT touch CapCut's root_meta_info.json registry. register_projects.js does
+// that as a separate, explicit step, because CapCut owns that file and reads it at startup.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const M = require('./draft_model');
 // CapCut stores a device fingerprint in each draft. It is generated per machine (or taken
 // from env), never written into the repo.
 const PLATFORM = {
@@ -20,15 +25,10 @@ const ASSETS_ROOT = path.resolve(__dirname, '../..');
 const DRAFT_ROOT = process.env.CAPCUT_DRAFTS_DIR || (() => { throw new Error('Set CAPCUT_DRAFTS_DIR to CapCut\'s Projects/com.lveditor.draft folder'); })();
 const PROBE = JSON.parse(fs.readFileSync(path.join(__dirname, 'asset_probe.json'), 'utf8'));
 
-function guid() {
-  return crypto.randomUUID().toUpperCase();
-}
+const guid = M.guid;
+const winPath = (relPath) => M.winPath(relPath, ASSETS_ROOT);
+const isImage = M.isImage;
 
-function winPath(relPath) {
-  return path.join(ASSETS_ROOT, relPath).replace(/\//g, '\\');
-}
-
-function isImage(relPath) { return /\.(png|jpe?g)$/i.test(relPath); }
 
 // ---- Material builders ----
 function buildVideoMaterial(relPath) {
@@ -101,143 +101,18 @@ function buildAudioMaterial(relPath, durationUs) {
   };
 }
 
-function buildAudioSegment(materialId, speedId, timelineStartUs, durationUs) {
-  return {
-    id: guid(),
-    material_id: materialId,
-    target_timerange: { start: timelineStartUs, duration: durationUs },
-    source_timerange: { start: 0, duration: durationUs },
-    render_timerange: { start: 0, duration: 0 },
-    speed: 1.0,
-    volume: 1.0,
-    last_nonzero_volume: 1.0,
-    visible: true,
-    clip: null,
-    uniform_scale: null,
-    reverse: false,
-    is_loop: false,
-    is_tone_modify: false,
-    intensifies_audio: false,
-    cartoon: false,
-    render_index: 0,
-    track_render_index: 0,
-    track_attribute: 0,
-    template_id: '',
-    extra_material_refs: [speedId],
-    keyframe_refs: [],
-    common_keyframes: [],
-    source: 'segmentsourcenormal',
-  };
-}
+const buildAudioSegment = M.buildAudioSegment;
 
-// A clip shorter than its beat loops, or - when the beat names a `hold` still -
-// plays once and then holds on that still. Returns [{ file, durationUs }].
-const FRAME_US = 33334; // stay a frame inside the probed clip length
-function beatParts(beat, durationUs) {
-  if (isImage(beat.file)) return [{ file: beat.file, durationUs }];
-  const info = PROBE.videos[beat.file];
-  if (!info) throw new Error(`No probe data for video ${beat.file}`);
-  const clipUs = info.durationUs - FRAME_US;
-  const parts = [];
-  for (let left = durationUs; left > 0;) {
-    if (parts.length && beat.hold) {
-      parts.push({ file: beat.hold, durationUs: left });
-      break;
-    }
-    const d = Math.min(left, clipUs);
-    parts.push({ file: beat.file, durationUs: d });
-    left -= d;
-  }
-  return parts;
-}
-
-function identityClip() {
-  return {
-    alpha: 1.0,
-    flip: { horizontal: false, vertical: false },
-    rotation: 0.0,
-    scale: { x: 1.0, y: 1.0 },
-    transform: { x: 0.0, y: 0.0 },
-  };
-}
-
-function buildSegment(materialId, timelineStartUs, durationUs, sourceStartUs = 0) {
-  return {
-    id: guid(),
-    material_id: materialId,
-    target_timerange: { start: timelineStartUs, duration: durationUs },
-    source_timerange: { start: sourceStartUs, duration: durationUs },
-    speed: 1.0,
-    volume: 1.0,
-    visible: true,
-    clip: identityClip(),
-    enable_adjust: true,
-    enable_color_correct_adjust: false,
-    enable_color_curves: true,
-    enable_color_wheels: true,
-    enable_lut: true,
-    enable_smart_color_adjust: false,
-    render_index: 0,
-    reverse: false,
-    template_id: '',
-    track_attribute: 0,
-    track_render_index: 0,
-    uniform_scale: { on: true, value: 1.0 },
-    hdr_settings: null,
-    extra_material_refs: [],
-    common_keyframes: [],
-  };
-}
-
-// ---- Text overlays ----
+// ---- Text overlays and timing ----
 // Styles cloned from the two text layers the user made in the Indus EN draft (see
 // text_styles.json): 'title' sits near the top for the whole beat; 'stat' is the big
-// centred number, fading in a third of the way into the beat (at most 3s in), as in
-// that draft. `y` overrides the vertical position (-1 bottom .. 1 top); `scale` shrinks
-// text that would otherwise run off the 1080-wide frame.
+// centred number, fading in a third of the way into the beat (at most 3s in).
 const TEXT_STYLES = JSON.parse(fs.readFileSync(path.join(__dirname, 'text_styles.json'), 'utf8'));
-const OVERLAY_NAME = 'invit-overlay'; // marks text the builder made, vs. text added in CapCut
-const STAT_DELAY_US = 3000000;
-// A two-line title is scaled down to fit the frame, as the user did by hand on the
-// Roadstar HI name title.
-const TWO_LINE_TITLE_SCALE = 0.7365;
-
-function textOverlay(style, text, startUs, durationUs, y, scale) {
-  const s = TEXT_STYLES[style];
-  const content = JSON.parse(JSON.stringify(s.content));
-  content.text = text;
-  content.styles.forEach((st) => { st.range = [0, text.length]; });
-  const material = { ...JSON.parse(JSON.stringify(s.material)), id: guid(), name: OVERLAY_NAME, content: JSON.stringify(content) };
-  const animation = { ...JSON.parse(JSON.stringify(s.animation)), id: guid() };
-  const segment = {
-    ...JSON.parse(JSON.stringify(s.segment)), id: guid(), material_id: material.id,
-    target_timerange: { start: startUs, duration: durationUs }, extra_material_refs: [animation.id],
-  };
-  if (y !== undefined) segment.clip.transform.y = y;
-  if (style === 'title' && text.includes('\n')) segment.clip.scale = { x: TWO_LINE_TITLE_SCALE, y: TWO_LINE_TITLE_SCALE };
-  if (scale !== undefined) segment.clip.scale = { x: scale, y: scale };
-  return { material, animation, segment };
-}
-
-// beat.text = [[style, text, y?], ...] -> overlays timed inside that beat.
-function beatOverlays(beat, startUs, durationUs) {
-  return (beat.text || []).map(([style, text, y, scale]) => {
-    const delay = style === 'title' ? 0 : Math.min(STAT_DELAY_US, Math.round(durationUs / 3));
-    const overlay = textOverlay(style, text, startUs + delay, durationUs - delay, y, scale);
-    overlay.segment.invit_style = style; // lets the preview builder retime stats around logo cards
-    return { ...overlay, style };
-  });
-}
-
-// One text track per style, so the overlays of a beat never overlap on a track.
-function textTracks(overlays) {
-  const tracks = [];
-  for (const style of Object.keys(TEXT_STYLES).filter((k) => !k.startsWith('_'))) {
-    const segs = overlays.filter((o) => o.style === style).map((o) => o.segment);
-    if (segs.length) tracks.push({ id: guid(), type: 'text', flag: 0, attribute: 0, name: '', is_default_name: true, segments: segs });
-  }
-  return tracks;
-}
+const OVERLAY_NAME = M.OVERLAY_NAME; // marks text the builder made, vs. text added in CapCut
+const buildSegment = M.buildSegment;
+const beatParts = (beat, durationUs) => M.beatParts(beat, durationUs, PROBE.videos);
+const beatOverlays = (beat, startUs, durationUs) => M.beatOverlays(TEXT_STYLES, beat, startUs, durationUs);
+const textTracks = (overlays) => M.textTracks(TEXT_STYLES, overlays);
 
 // ---- Project builder ----
 // `beats` = [{ file: "videos/toll_roads_highways/xxx.mp4", durationSec: 6, hold?: "still.png",
