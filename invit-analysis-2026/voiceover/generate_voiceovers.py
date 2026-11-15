@@ -28,12 +28,12 @@ Usage (from repo root):
 
 import argparse
 import json
-import re
 import subprocess
 import sys
 import time
 from pathlib import Path
 
+from script_format import parse_sections  # re-exported: progress.py, ab_voice.py and others import it from here
 from tts_engines import VOICES, synth
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -44,10 +44,6 @@ MANIFEST = OUT_DIR / "voiceover_manifest.json"
 DEFAULT_TEMPO = 1.1
 DEFAULT_VOICES = {"english": "en_parler_raghav", "hindi": "hi_parler_aman"}
 MIN_GAP = 0.25  # seconds between sections when one overruns into the next
-
-SECTION_RE = re.compile(r"^### \[(\d+):(\d+)[–-](\d+):(\d+)\]", re.M)
-VO_RE = re.compile(r'^\*\*VO:\*\*\s*"(.*?)"\s*$', re.M | re.S)
-
 
 def find_scripts():
     """Yield (language, script name, path) for every script with VO blocks."""
@@ -62,21 +58,6 @@ def find_scripts():
     for path in sorted((SCRIPTS_DIR / "individual").glob("*.md")):
         lang = path.stem.rsplit("_", 1)[1]
         yield lang, path.stem, path
-
-
-def parse_sections(path):
-    """Return [(start_sec, end_sec, vo_text)] in script order."""
-    text = path.read_text(encoding="utf-8")
-    heads = list(SECTION_RE.finditer(text))
-    sections = []
-    for i, head in enumerate(heads):
-        body = text[head.end(): heads[i + 1].start() if i + 1 < len(heads) else len(text)]
-        vo = VO_RE.search(body)
-        if not vo:
-            continue
-        m1, s1, m2, s2 = map(int, head.groups())
-        sections.append((m1 * 60 + s1, m2 * 60 + s2, " ".join(vo.group(1).split())))
-    return sections
 
 
 def probe_duration(path):
