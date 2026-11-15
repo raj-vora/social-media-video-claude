@@ -4,9 +4,10 @@
 
 A toolchain that turns structured research into short vertical videos. It takes numbers
 from market data, writes them into a timed script, narrates the script with neural TTS,
-draws animated charts, and assembles editable CapCut projects timed to the voiceover,
-with logos, on-screen text, and end cards. An ffmpeg renderer previews each project
-without CapCut.
+draws animated charts, and assembles a timed edit with logos, on-screen text, and end
+cards. The edit can be rendered straight to MP4 with ffmpeg, or opened as a CapCut
+project for hand edits. CapCut is optional: the ffmpeg renderer produces the finished
+video without it.
 
 The repository contains the tooling only. The scripts, footage, data tables, and renders
 for each series are not included, so the pipeline needs your own content (see
@@ -21,12 +22,21 @@ flowchart LR
     P --> V[Voiceover<br/>Indic Parler-TTS]
     R --> C[PowerPoint charts<br/>VBA over COM]
     V --> T[Timing and cues<br/>mention_times.py]
-    T --> B[CapCut draft builder<br/>build_draft.js]
+    T --> B[Edit builder<br/>build_draft.js writes a CapCut project]
     C --> B
     B --> E[Logos and end cards<br/>add_logos.js]
-    E --> F[Preview render<br/>render_preview.py / ffmpeg]
+    E --> F[Render<br/>render_preview.py / ffmpeg to MP4]
     E --> U[Publishing<br/>Instagram and YouTube]
 ```
+
+## Output paths
+
+- **Render only (no CapCut).** The dividend and ex-dividend series render directly with
+  ffmpeg from their own `tools/` scripts.
+- **Edit project, then render.** The InvIT builders write a CapCut project.
+  `render_preview.py` renders that project to MP4 with ffmpeg, and the same project can be
+  opened in CapCut for hand edits. The project file format is reverse-engineered, so a
+  CapCut upgrade may break it.
 
 ## Engineering notes
 
@@ -75,12 +85,14 @@ and a syntax check of every Python and JavaScript file.
 
 ## Running it
 
-The full pipeline runs on Windows, because it drives CapCut and PowerPoint.
+The full pipeline runs on Windows, because it drives PowerPoint and, for the edit-project path, CapCut.
 
 - **Python 3.12** for the voiceover and image tools. `requirements.txt` lists the packages.
 - **Node.js** for the draft builders. They use only the standard library.
 - **ffmpeg and ffprobe** on `PATH`.
 - **Environment variables.** Set these in your shell or system settings; Node does not read `.env`.
+
+  The CapCut variables are only needed for the edit-project path.
 
   | Variable | Used by | Example |
   |---|---|---|

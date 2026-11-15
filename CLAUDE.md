@@ -18,7 +18,8 @@ drafts → logos and end cards → ffmpeg preview.
 - Windows is the primary target: CapCut, PowerPoint (VBA via COM) and the Windows
   default paths. Linux works for the voiceover, image and preview scripts if the paths
   are set.
-- Set these environment variables instead of editing paths in code:
+- Set these environment variables instead of editing paths in code (the CapCut ones are only
+  needed for the edit-project path):
   `CAPCUT_DRAFTS_DIR`, `CAPCUT_FONT`, optionally `FFPROBE`, `PIXABAY_API_KEY`,
   `VIDS_BASE_URL`.
 - Python 3.12 for voiceover and images. Node has no dependencies. Model caches go to
