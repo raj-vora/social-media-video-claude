@@ -1,0 +1,27 @@
+# Local environments and caches
+.venv/
+.venv-tts/
+venv/
+.cache/
+.claude/
+__pycache__/
+
+# Credentials
+.env
+.secrets/
+
+# Media and renders (produced locally, not committed)
+*.mp4
+*.mov
+*.wav
+*.mp3
+*.pptx
+*.ttf
+previews/
+previews_shorts/
+public_videos/
+videos/
+thumbnails/
+
+# Generated drafts and backups
+live_drafts_backup_*/
