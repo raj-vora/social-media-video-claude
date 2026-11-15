@@ -1,0 +1,34 @@
+# Python environment for voiceover/ and the PIL generators (.venv-tts in CLAUDE.md).
+# Everything else in the repo (Node scripts, publish/post_reel.py) uses the standard
+# library only. ffmpeg/ffprobe must be on PATH separately.
+#
+# Python 3.12 (Parler pins transformers 4.46.1). From the repo root:
+#   uv venv .venv-tts --python 3.12
+#   uv pip install --python .venv-tts/Scripts/python.exe -r requirements.txt
+#
+# torch is the CUDA 12.4 build (TTS_DEVICE=cuda for the GPU Parler worker). On a
+# machine without an NVIDIA GPU, drop the index line and the +cu124 suffixes.
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.6.0+cu124
+torchaudio==2.6.0+cu124
+
+# TTS engines (tts_engines.py). Parler is the one in use (Raghav EN, Aman HI); the
+# others were auditioned and are still selectable.
+parler-tts @ git+https://github.com/huggingface/parler-tts.git@d108732cd57788ec86bc857d99a6cabd66663d68
+transformers==4.46.1
+accelerate==1.15.0
+huggingface-hub==0.36.2
+kokoro==0.9.4
+piper-tts==1.8.0
+edge-tts==7.2.8
+gtts==2.5.4
+num2words==0.5.14
+
+# Audio I/O, take scoring and pacing (ab_voice.py, mention_times.py)
+soundfile==0.14.0
+numpy==2.5.4
+librosa==1.0.0
+faster-whisper==1.2.1
+
+# Cards, logo cards and long-form graphics; render_preview.py's text
+pillow==12.3.0
