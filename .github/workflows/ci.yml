@@ -39,7 +39,7 @@ jobs:
           node-version: "20"
 
       - name: JavaScript unit tests (node:test)
-        run: node --test tests/js/draft_model.test.js
+        run: node --test tests/js/draft_model.test.js tests/js/build_scene.test.js
 
       - name: Syntax-check every JavaScript file
         run: git ls-files '*.js' | xargs -n1 node --check
