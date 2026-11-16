@@ -4,10 +4,8 @@
 
 A toolchain that turns structured research into short vertical videos. It takes numbers
 from market data, writes them into a timed script, narrates the script with neural TTS,
-draws animated charts, and assembles a timed edit with logos, on-screen text, and end
-cards. The edit can be rendered straight to MP4 with ffmpeg, or opened as a CapCut
-project for hand edits. CapCut is optional: the ffmpeg renderer produces the finished
-video without it.
+draws animated charts, and renders the timed edit with logos, on-screen text, and end
+cards straight to MP4 with ffmpeg. No video editor is needed.
 
 The repository contains the tooling only. The scripts, footage, data tables, and renders
 for each series are not included, so the pipeline needs your own content (see
@@ -22,21 +20,22 @@ flowchart LR
     P --> V[Voiceover<br/>Indic Parler-TTS]
     R --> C[PowerPoint charts<br/>VBA over COM]
     V --> T[Timing and cues<br/>mention_times.py]
-    T --> B[Edit builder<br/>build_draft.js writes a CapCut project]
+    T --> B[Scene builder<br/>build_scene.js writes a scene file]
     C --> B
-    B --> E[Logos and end cards<br/>add_logos.js]
-    E --> F[Render<br/>render_preview.py / ffmpeg to MP4]
+    B --> E[Logos and end cards<br/>included in the scene]
+    E --> F[Render<br/>render_scene.py / ffmpeg to MP4]
     E --> U[Publishing<br/>Instagram and YouTube]
 ```
 
 ## Output paths
 
-- **Render only (no CapCut).** The dividend and ex-dividend series render directly with
-  ffmpeg from their own `tools/` scripts.
-- **Edit project, then render.** The InvIT builders write a CapCut project.
-  `render_preview.py` renders that project to MP4 with ffmpeg, and the same project can be
-  opened in CapCut for hand edits. The project file format is reverse-engineered, so a
-  CapCut upgrade may break it.
+- **Scene, then render (default).** `build_scene.js` writes a reel as a scene: a plain
+  JSON description of its clips, overlays and voiceover. `render_scene.py` renders it with
+  ffmpeg. The format is in [`invit-analysis-2026/render/SCENE.md`](invit-analysis-2026/render/SCENE.md).
+- **Dividend and ex-dividend.** These series render directly with ffmpeg from their own
+  `tools/` scripts.
+- **CapCut (legacy).** The earlier InvIT builders wrote CapCut projects for hand edits.
+  Those scripts are kept for reference; the scene path replaces them.
 
 ## Engineering notes
 
@@ -65,7 +64,8 @@ flowchart LR
 | `dividend-income-2026/` | Short and long-form dividend-stock videos: data scripts, footage fetching, overlays, thumbnails |
 | `exdiv-nov-2026/` | Ex-dividend shorts and a long-form video: ex-date data, ASR check, thumbnails |
 | `gold-2026/` | Gold and Sovereign Gold Bond price analysis and fetching |
-| `tests/` | Unit tests: the script parser and return maths (Python), the CapCut timing and overlay helpers (`tests/js`, Node) |
+| `invit-analysis-2026/render/` | Scene format, scene builder and renderer (no CapCut) |
+| `tests/` | Unit tests: the script parser and return maths (Python), the timing, overlay and scene helpers (`tests/js`, Node) |
 | `pyproject.toml` | `ruff` and `mypy` configuration |
 | `.github/workflows/ci.yml` | CI: lint, type check, both test suites, syntax checks |
 | `examples/sample_script.md` | One placeholder section showing the script format |
@@ -85,14 +85,14 @@ and a syntax check of every Python and JavaScript file.
 
 ## Running it
 
-The full pipeline runs on Windows, because it drives PowerPoint and, for the edit-project path, CapCut.
+The full pipeline runs on Windows, because it drives PowerPoint. The scene renderer needs only ffmpeg and Pillow; it was run on Linux.
 
 - **Python 3.12** for the voiceover and image tools. `requirements.txt` lists the packages.
 - **Node.js** for the draft builders. They use only the standard library.
 - **ffmpeg and ffprobe** on `PATH`.
 - **Environment variables.** Set these in your shell or system settings; Node does not read `.env`.
 
-  The CapCut variables are only needed for the edit-project path.
+  The CapCut variables are only needed for the legacy CapCut scripts.
 
   | Variable | Used by | Example |
   |---|---|---|
@@ -116,6 +116,9 @@ are not included, so the builders will not run out of the box. Write your own, f
   segments, text overlays) are unit-tested with `node:test`. The file-writing draft
   builder is checked for syntax only, because it writes into CapCut's project format and
   needs a real CapCut install to verify.
+- The scene renderer was checked against the earlier CapCut-based renderer on the same inputs:
+  the decoded frames and audio were identical. That check used a stand-in voiceover, because
+  the recordings are not in the repository.
 - The CapCut project format is undocumented. The builders were reverse-engineered from
   projects saved by CapCut 9.x, and they may break after an upgrade.
 - The voiceover and chart steps depend on local hardware and software (a GPU is optional,
