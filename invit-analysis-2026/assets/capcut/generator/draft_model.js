@@ -166,8 +166,50 @@ function textTracks(styles, overlays) {
   return tracks;
 }
 
+// ---- Reel timeline ----
+// How a reel's beats line up with its voiceover and end cards. Pure: it takes the beats
+// and the manifest's VO sections and returns new beats.
+const TAIL_SEC = 0.8; // picture held after the last VO line ends
+const CARD_LEAD_SEC = 0.15; // a card lands just before its line is said
+const MIN_FOOTAGE_SEC = 0.5; // shorter than this, the outro starts on the disclaimer
+const END_CARDS = { disclaimer: 'images/end_cards/disclaimer_card.png', cta: 'images/end_cards/cta_card.png' };
+
+// Beat i starts where VO section i was placed; the last beat runs to the end of the VO.
+function retime(beats, segments) {
+  if (beats.length !== segments.length) {
+    throw new Error(`${beats.length} beats but ${segments.length} VO sections`);
+  }
+  const last = segments[segments.length - 1];
+  const ends = segments.slice(1).map((s) => s.placed_at).concat(last.placed_at + last.duration + TAIL_SEC);
+  return beats.map((beat, i) => ({ ...beat, durationSec: ends[i] - (i ? segments[i].placed_at : 0) }));
+}
+
+// Splits the outro beat into footage -> disclaimer card -> call-to-action card at
+// the cue times (seconds into the outro's VO clip).
+function withEndCards(beats, segments, cues, cards = END_CARDS) {
+  const outro = beats[beats.length - 1];
+  const start = segments[segments.length - 1].placed_at;
+  const end = start + outro.durationSec;
+  const at = (card) => {
+    const cue = cues.find((c) => c.card === card);
+    if (!cue) throw new Error(`no ${card} cue in end_cues.json - run voiceover/mention_times.py`);
+    return Math.min(end, Math.max(start, start + cue.offset - CARD_LEAD_SEC));
+  };
+  let disclaimer = at('disclaimer');
+  const cta = at('cta');
+  if (disclaimer - start < MIN_FOOTAGE_SEC) disclaimer = start;
+  const parts = [
+    { ...outro, durationSec: disclaimer - start },
+    { file: cards.disclaimer, durationSec: cta - disclaimer },
+    { file: cards.cta, durationSec: end - cta },
+  ].filter((b) => b.durationSec > 0);
+  return beats.slice(0, -1).concat(parts);
+}
+
+
 module.exports = {
   guid, winPath, isImage, beatParts, identityClip, buildSegment, buildAudioSegment,
   textOverlay, beatOverlays, textTracks,
+  retime, withEndCards, TAIL_SEC, CARD_LEAD_SEC, MIN_FOOTAGE_SEC, END_CARDS,
   FRAME_US, OVERLAY_NAME, STAT_DELAY_US, TWO_LINE_TITLE_SCALE,
 };
