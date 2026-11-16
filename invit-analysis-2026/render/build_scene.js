@@ -12,7 +12,6 @@
 const fs = require('fs');
 const path = require('path');
 const M = require('../assets/capcut/generator/draft_model.js');
-const { reels } = require('../assets/capcut/generator/reels.js');
 
 const ASSETS = path.resolve(__dirname, '..', 'assets');
 const GEN = path.join(ASSETS, 'capcut', 'generator');
@@ -159,7 +158,7 @@ function placeLogos(cues, registry, endSec) {
 
 // One reel from the project's own files: its beats, its manifest entry and its cues.
 function buildReelScene(key, lang, ctx) {
-  const reel = reels[key];
+  const reel = ctx.reels[key];
   const name = `${reel.draft}_${SUFFIX[lang]}`;
   const entry = ctx.manifest[`${lang}/${key}_${lang}`];
   if (!entry) throw new Error(`no voiceover manifest entry for ${lang}/${key}_${lang}`);
@@ -186,9 +185,12 @@ function buildReelScene(key, lang, ctx) {
   });
 }
 
+// reels.js holds each reel's beats (the content). It is loaded here, not at import, so the
+// pure functions can be used and tested without it.
 function loadContext(assetRoot = ASSETS) {
   return {
     assetRoot,
+    reels: require(path.join(GEN, 'reels.js')).reels,
     probe: readJson(path.join(GEN, 'asset_probe.json')),
     styles: readJson(path.join(GEN, 'text_styles.json')),
     endCues: readJson(path.join(GEN, 'end_cues.json')),
@@ -204,7 +206,7 @@ function main() {
   const outDir = opt('--out') || path.join(__dirname, '..', '..', 'previews', 'scenes');
   const ctx = loadContext();
   fs.mkdirSync(outDir, { recursive: true });
-  for (const key of Object.keys(reels)) {
+  for (const key of Object.keys(ctx.reels)) {
     if (opt('--only') && !key.includes(opt('--only'))) continue;
     for (const lang of Object.keys(SUFFIX)) {
       if (opt('--lang') && opt('--lang') !== lang) continue;
