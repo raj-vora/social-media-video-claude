@@ -72,7 +72,7 @@ def banner_png(big, name, chip, dest):
 
 def all_segs(script):
     """The script's segments plus the closing disclaimer, in the script's language (Hindi by default)."""
-    return [*script["segs"], ("end", [script.get("end", END_SENTENCE)], [], None, script.get("end_clip", "money/money_02"))]
+    return [*script["segs"], ("end", [script.get("end", END_SENTENCE)], [], None, script.get("end_clip", "savings/savings_01"))]
 
 
 def chart_series(chart):
@@ -150,7 +150,7 @@ def video(short, letter, force):
             B.render_segment(dest, B.norm_clip(clip, 16), wav, pngs, banner, footer,
                              chart_series(chart) if chart else None,
                              shade=0.34 if name == "hook" else 0.45, chart_title=script.get("chart_title", CHART_TITLE),
-                             shade_h=TALL_SHADE if short.startswith(("15_", "16_", "17_", "18_")) else 640)
+                             shade_h=TALL_SHADE if short.startswith(("15_", "16_", "17_", "18_", "19_", "20_")) else 640)
         segs.append(dest)
     OUT.mkdir(parents=True, exist_ok=True)
     listing = work / "concat.txt"

@@ -32,10 +32,10 @@ def base_url():
     return ""
 
 
-def check(url, size):
+def check(url, size, ctype="video/mp4"):
     h = run(["curl", "-sI", "-m", "30", "-A", "facebookexternalhit/1.1", url]).stdout.lower()
     lines = h.splitlines()
-    return bool(lines) and "200" in lines[0] and "video/mp4" in h and f"content-length: {size}" in h
+    return bool(lines) and "200" in lines[0] and ctype in h and f"content-length: {size}" in h
 
 
 def own_server(fast, name, size):
@@ -52,7 +52,7 @@ def own_server(fast, name, size):
     safe = re.sub(r"[^A-Za-z0-9_.-]", "_", name)
     shutil.copy(fast, os.path.join(folder, safe))
     url = f"{base}/{token}/{safe}"
-    if check(url, size):
+    if check(url, size, "image/" if safe.endswith((".jpg", ".png")) else "video/mp4"):
         return url
     shutil.rmtree(folder, ignore_errors=True)
     print(f"{url} did not check out; falling back to uguu.se", file=sys.stderr)
@@ -60,6 +60,10 @@ def own_server(fast, name, size):
 
 
 def main(video):
+    if video.lower().endswith((".jpg", ".png")):  # covers: served as they are, own server only
+        url = own_server(video, os.path.basename(video), os.path.getsize(video))
+        sys.exit(f"could not host {video}") if not url else print(url)
+        return
     with tempfile.TemporaryDirectory() as tmp:
         fast = os.path.join(tmp, "fast.mp4")
         r = run(["ffmpeg", "-v", "error", "-y", "-i", video, "-c", "copy", "-movflags", "+faststart", fast])

@@ -39,16 +39,16 @@ LEAD = 0.25  # seconds a line appears before the narrator's word
 # footage pool per short (the euro-coin and dollar-note clips were dropped as not Indian); hook i uses pool[i % len], who/risk use the first two,
 # the proof section the last (money / finance b-roll behind the chart).
 POOLS = {
-    "01_coal_india": ["coal_mining/coal_mining_01", "coal_mining/coal_mining_02", "power_lines/power_lines_03", "money/money_02"],
-    "02_rec": ["power_lines/power_lines_01", "power_lines/power_lines_02", "money/money_02", "money/money_03"],
-    "03_pfc": ["power_lines/power_lines_02", "power_lines/power_lines_01", "money/money_02", "money/money_03"],
-    "04_itc": ["retail_food/retail_food_02", "money/money_02", "retail_food/retail_food_02", "money/money_03"],
-    "05_cesc": ["city_night/city_night_01", "city_night/city_night_02", "power_lines/power_lines_01", "money/money_02"],
+    "01_coal_india": ["coal_mining/coal_mining_01", "coal_mining/coal_mining_02", "power_lines/power_lines_03", "savings/savings_01"],
+    "02_rec": ["power_lines/power_lines_01", "power_lines/power_lines_02", "savings/savings_01", "money/money_03"],
+    "03_pfc": ["power_lines/power_lines_02", "power_lines/power_lines_01", "savings/savings_01", "money/money_03"],
+    "04_itc": ["retail_food/retail_food_02", "savings/savings_01", "retail_food/retail_food_02", "money/money_03"],
+    "05_cesc": ["city_night/city_night_01", "city_night/city_night_02", "power_lines/power_lines_01", "savings/savings_01"],
     "06_infosys": ["it_office/it_office_07", "it_office/it_office_04", "it_office/it_office_08", "money/money_03"],
-    "07_hcl_tech": ["it_office/it_office_08", "it_office/it_office_09", "it_office/it_office_04", "money/money_02"],
+    "07_hcl_tech": ["it_office/it_office_08", "it_office/it_office_09", "it_office/it_office_04", "savings/savings_01"],
     "08_hudco": ["housing/housing_02", "city_night/city_night_03", "money/money_03", "money/money_03"],
-    "09_power_grid": ["power_lines/power_lines_01", "power_lines/power_lines_02", "power_lines/power_lines_04", "money/money_02"],
-    "10_hero_motocorp": ["motorbikes/motorbikes_04", "motorbikes/motorbikes_01", "city_night/city_night_02", "money/money_02"],
+    "09_power_grid": ["power_lines/power_lines_01", "power_lines/power_lines_02", "power_lines/power_lines_04", "savings/savings_01"],
+    "10_hero_motocorp": ["motorbikes/motorbikes_04", "motorbikes/motorbikes_01", "city_night/city_night_02", "savings/savings_01"],
 }
 SYMBOLS = {"01_coal_india": "COALINDIA", "02_rec": "RECLTD", "03_pfc": "PFC", "04_itc": "ITC", "05_cesc": "CESC",
            "06_infosys": "INFY", "07_hcl_tech": "HCLTECH", "08_hudco": "HUDCO", "09_power_grid": "POWERGRID",
@@ -119,7 +119,7 @@ def footer_png(dest):
     img.save(dest)
 
 
-def chart_frames(series, dest_stdin, seconds):
+def chart_frames(series, dest_stdin, seconds, title="Dividend per share (₹), by fiscal year"):
     """Animated dividend-per-share bars, written as raw RGBA frames to ffmpeg's stdin."""
     cw, ch = 1000, 640
     years = list(series)
@@ -131,7 +131,7 @@ def chart_frames(series, dest_stdin, seconds):
         img = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
         d.rounded_rectangle((0, 0, cw, ch), 36, fill=(8, 12, 22, 200))
-        d.text((40, 24), "Dividend per share (₹), by fiscal year", font=font(34), fill=WHITE)
+        d.text((40, 24), title, font=font(34), fill=WHITE)
         base, plot_h = ch - 80, ch - 200
         bw = (cw - 80) / len(years)
         for i, y in enumerate(years):
@@ -160,11 +160,11 @@ def norm_clip(name, seconds):
     return dest
 
 
-def render_segment(dest, clip, audio, texts, banner, footer, series, shade=0.0):
+def render_segment(dest, clip, audio, texts, banner, footer, series, shade=0.0, chart_title=None, shade_h=640):
     """One section: footage + banner + staggered text lines (+ chart) over the voiceover."""
     dur = duration(audio) + GAP
     inputs = ["-stream_loop", "-1", "-i", clip, "-i", audio, "-i", banner, "-i", footer]
-    chain = [f"[0:v]trim=duration={dur:.3f},setpts=PTS-STARTPTS[bg]", (f"[bg]drawbox=x=0:y=330:w=1080:h=640:color=black@{shade}:t=fill:enable='gte(t,{texts[0][2] - 0.1:.2f})'[bg2];[bg2]" if shade and texts else "[bg]") + "[2:v]overlay=0:90[v1]", "[v1][3:v]overlay=0:1640[v2]"]
+    chain = [f"[0:v]trim=duration={dur:.3f},setpts=PTS-STARTPTS[bg]", (f"[bg]drawbox=x=0:y=330:w=1080:h={shade_h}:color=black@{shade}:t=fill:enable='gte(t,{texts[0][2] - 0.1:.2f})'[bg2];[bg2]" if shade and texts else "[bg]") + "[2:v]overlay=0:90[v1]", "[v1][3:v]overlay=0:1640[v2]"]
     last, idx, y = "v2", 4, 380
     for k, (png, h, start) in enumerate(texts):
         inputs += ["-loop", "1", "-i", png]
@@ -184,7 +184,7 @@ def render_segment(dest, clip, audio, texts, banner, footer, series, shade=0.0):
     if series:
         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
         try:
-            chart_frames(series, proc.stdin, dur)
+            chart_frames(series, proc.stdin, dur, *([chart_title] if chart_title else []))
         except BrokenPipeError:
             pass
         proc.stdin.close()

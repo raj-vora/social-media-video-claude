@@ -30,7 +30,32 @@ QUERIES = {
     "motorbikes": ["motorcycle road india", "motorbike traffic", "scooter city"],
     "money": ["coins falling", "indian rupee notes", "money growth plant coins"],
     "finance": ["stock market chart", "calculator finance", "bank building"],
+    # ex-dividend series (exdiv-nov-2026): pharma for Sanofi / Laurus, factories for Amara Raja /
+    # Sundram / Navin, drinks for Varun Beverages, farms for Kaveri Seed
+    "pharma_lab": ["pharmaceutical laboratory", "medicine pills production line", "scientist laboratory microscope"],
+    "factory": ["factory machine metal parts", "chemical plant industry", "car battery"],
+    "drinks": ["soft drink bottles factory", "cold drink bottles"],
+    "farm_india": ["india farmer field", "green crop field"],
+    "trading": ["stock market trading screen", "mobile phone stock trading"],
+    # single-stock ex-dividend shorts: SCI, RITES, Balrampur Chini, Somany Ceramics
+    # generic pool (india_city, charts, savings, people): hand-picked from contact sheets, see assets/GENERIC_FOOTAGE.md
+    # Oil India: oil/ 01-05 hand-picked from "oil pump", "oil refinery" (manifest)
+    # TD Power Systems: generators/ 01-04 hand-picked from "power plant", "electric motor", "factory machinery" (manifest)
+    # Page Industries (Jockey, Speedo licensee)
+    "apparel": ["sewing machine", "clothing store shelves", "fabric", "t-shirt"],  # 01/03/04 hand-picked (3rd hit of each), see manifest
+    "ships": ["cargo ship sea", "container ship port", "port cranes containers"],
+    "railway": ["train railway india", "railway track train"],
+    "sugarcane": ["sugarcane field", "sugarcane harvest"],
+    "tiles": ["ceramic tiles floor", "tile showroom"],
 }
+
+
+# Clips checked by eye and deleted (16 Nov 2026): never download them again. Positions in QUERIES stay as they are,
+# so the other clips keep their names. Reasons: ₹2000 notes (withdrawn), dollar signs, falling red bars, foreign
+# notes, milk, green screen, a pond, an EV render, a crop that looks like cannabis.
+RETIRED = {"videos/money/money_02.mp4", "videos/trading/trading_01.mp4", "videos/finance/finance_01.mp4",
+           "videos/finance/finance_02.mp4", "videos/drinks/drinks_01.mp4", "videos/drinks/drinks_02.mp4",
+           "videos/factory/factory_02.mp4", "videos/factory/factory_03.mp4", "videos/farm_india/farm_india_02.mp4"}
 
 
 def load_env():
@@ -64,7 +89,7 @@ def main():
         (ASSETS / "videos" / cat).mkdir(parents=True, exist_ok=True)
         for i, q in enumerate(queries, 1):
             rel = f"videos/{cat}/{cat}_{i:02d}.mp4"
-            if rel in have and (ASSETS / rel).exists():
+            if rel in RETIRED or (rel in have and (ASSETS / rel).exists()):
                 continue
             hit, v = pick(search(q))
             if not hit:
